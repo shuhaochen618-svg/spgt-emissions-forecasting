@@ -1,0 +1,28 @@
+# Python Bytecode and cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# PyTorch checkpoints and models
+*.pt
+*.pth
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# IDE configurations
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# Log files
+*.log
