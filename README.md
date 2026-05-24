@@ -64,6 +64,8 @@ Accurate daily carbon emissions forecasting is essential for dynamic power grid 
 ├── README.md                # Documentation and usage guide
 ├── requirements.txt         # Package dependencies
 ├── setup.py                 # Package installer script
+├── data/                    # Raw Carbon Monitor dataset
+│   └── carbonmonitor-global_datas_2026-05-22.csv
 ├── spgt/                    # Core source library
 │   ├── __init__.py          # Exposed classes and helpers
 │   ├── models.py            # PyTorch model definitions
@@ -85,6 +87,8 @@ cd spgt
 pip install -r requirements.txt
 pip install -e .
 ```
+
+---
 
 ---
 
@@ -117,17 +121,13 @@ print("Predictions shape:", y_pred.shape)  # Expected: torch.Size([4, 30, 6])
 ```
 
 ### 2. Complete Training and Evaluation
-You can train SPGT on synthetic daily data immediately by running:
+To train SPGT on the provided raw dataset:
 
 ```bash
-python examples/train_eval.py --epochs 15 --batch_size 32
+python examples/train_eval.py --data_path "data/carbonmonitor-global_datas_2026-05-22.csv" --epochs 15 --batch_size 32
 ```
 
-If you have downloaded the Carbon Monitor daily CSV dataset (e.g. `carbonmonitor-global_datas_2026-05-22.csv`), specify its location:
-
-```bash
-python examples/train_eval.py --data_path "/path/to/carbonmonitor-global.csv" --epochs 50
-```
+If no dataset path is specified (or file not found), the training script will automatically fall back to generating synthetic daily data to run a quick test.
 
 ---
 
@@ -142,18 +142,3 @@ Raw, unscaled benchmark results comparing SPGT with traditional recurrent networ
 | **DLinear** | 0.4656 | 0.8458 | 64.70% | Baseline |
 | **LSTM** | 0.6002 | 1.1488 | 187.82% | Recurrent |
 | **Transformer** | 0.6022 | 1.3902 | 53.81% | Point-wise |
-
----
-
-## ✍️ Citation
-
-If you use this model or code in your academic work, please cite:
-
-```bibtex
-@article{spgt2026carbon,
-  title={Capturing Lunar New Year Dynamics and Sectoral Coupling in China's Daily Carbon Emissions: A Patch-Based Spatiotemporal Graph Transformer Approach},
-  author={Carbon Dynamics Research Team},
-  journal={arXiv preprint arXiv:XXXX.XXXXX},
-  year={2026}
-}
-```
