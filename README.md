@@ -21,42 +21,6 @@ Accurate daily carbon emissions forecasting is essential for dynamic power grid 
 * **CNY Patch-Embeddings**: Warping temporal representations by projecting calendar coordinates into the patch representation.
 * **Decoupled Cross-Sector Graph Attention**: Utilizing multi-head self-attention across sectors to model carbon-flow couplings, gated dynamically by holiday-intensity vectors.
 
----
-
-## 🏗️ Architecture Overview
-
-```
-                       [Input Window: L=90 days]
-                                  │
-       ┌───────────────────────────┴───────────────────────────┐
-       ▼                                                       ▼
-[Emissions: (B, 6, L)]                                [Calendar: (B, L, 5)]
-       │                                                       │
-   [Padding]                                               [Padding]
-       │                                                       │
-[Padded Emissions: (B, 6, 96)]                        [Padded Calendar: (B, 96, 5)]
-       │                                                       │
-   [Patching: unfold stride=8, len=16]                      [Patching & Flattening]
-       │                                                       │
-[Emissions Patches: (B, 6, N=11, P=16)]               [Calendar Patches: (B, N=11, 5*16)]
-       │                                                       │
-[Shared Patch Projection: Linear(P -> d)]             [Calendar Projection: Linear(5*P -> d)]
-       └───────────────────────────┬───────────────────────────┘
-                                   ▼
-                     [Combined Patches: (B, 6, N, d)]
-                                   │
-                     [+ Positional & Sector Embeddings]
-                                   │
-                [PatchTST Backbone: Temporal Attention Layer]
-                                   │
-                      [Cross-Sector Graph Attention]
-                                   │
-                     [Temporal Decoder: Linear(N -> H)]
-                                   │
-                     [Output Projection: Linear(d -> 1)]
-                                   ▼
-                    [Output Predictions: (B, H=30, 6)]
-```
 
 ---
 
