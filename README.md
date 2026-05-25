@@ -5,6 +5,10 @@ Official implementation of the **Spatiotemporal Patch Graph Transformer (SPGT)**
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![PyTorch](https://img.shields.io/badge/PyTorch-%23EE4C2C.svg?style=flat&logo=PyTorch&logoColor=white)](https://pytorch.org/)
 
+<p align="center">
+  <img src="Figure1.png" alt="Graphical Abstract" width="100%">
+</p>
+
 ---
 
 ## 📖 Introduction & Background
