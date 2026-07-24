@@ -1,112 +1,117 @@
 # SPGT: Spatiotemporal Patch Graph Transformer
 
-Official implementation of the **Spatiotemporal Patch Graph Transformer (SPGT)** (also referred to as **TSGT**) for multi-sectoral daily carbon emissions forecasting.
+Official implementation for the manuscript:
+
+**Forecasting Lunar New Year disruptions in China's daily sectoral CO2 emissions for near-real-time monitoring**
+
+This repository provides the implementation of the holiday-aware Spatiotemporal Patch Graph Transformer (SPGT) for 30-day forecasting of China's sectoral daily CO2 emissions using the Carbon Monitor dataset.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![PyTorch](https://img.shields.io/badge/PyTorch-%23EE4C2C.svg?style=flat&logo=PyTorch&logoColor=white)](https://pytorch.org/)
 
 <p align="center">
-  <img src="Figure1.png" alt="Graphical Abstract" width="100%">
+  <img src="Figure1.png" alt="Graphical abstract" width="100%">
 </p>
 
 ---
 
-## 📖 Introduction & Background
+## Overview
 
-Accurate daily carbon emissions forecasting is essential for dynamic power grid dispatching and dynamic carbon trading market operations. However, high-frequency emission tracking poses two primary challenges:
-1. **Shifting Cultural Holidays**: The Chinese New Year (CNY) holiday shifts annually on the Gregorian calendar by up to 20 days. This holiday causes massive shutdowns across manufacturing and industrial sectors, producing a severe 15-day emission "dip." Traditional models experience phase lags and spikes because they are holiday-blind.
-2. **Cross-Sectoral Coupling**: Emissions across sectors (e.g., Power and Industry) are strongly coupled. Vanilla state-of-the-art time-series models like **PatchTST** treat variables as completely independent channels, failing to capture cross-channel dependency.
+Near-real-time CO2 emission estimates are useful for environmental monitoring and short-term assessment, but daily emissions contain strong calendar effects. In China, the Lunar New Year holiday shifts on the Gregorian calendar and produces recurring but date-shifting disruptions in industrial and transport activity.
 
-**SPGT** directly addresses these limits by extending PatchTST's channel-independent temporal patching backbone with:
-* **CNY Patch-Embeddings**: Warping temporal representations by projecting calendar coordinates into the patch representation.
-* **Decoupled Cross-Sector Graph Attention**: Utilizing multi-head self-attention across sectors to model carbon-flow couplings, gated dynamically by holiday-intensity vectors.
+SPGT addresses this short-term forecasting problem with three components:
 
+- patch-based temporal representation for daily multivariate emission sequences;
+- future calendar covariates for holiday-aware forecasting;
+- sector-attention layers for modelling predictive associations among emission sectors.
+
+The sector-attention outputs should be interpreted as exploratory predictive associations, not as causal evidence of physical sectoral coupling.
 
 ---
 
-## 📂 Repository Structure
+## Repository structure
 
-```
+```text
 .
-├── LICENSE                  # MIT License
-├── README.md                # Documentation and usage guide
-├── requirements.txt         # Package dependencies
-├── setup.py                 # Package installer script
-├── data/                    # Raw Carbon Monitor dataset
+├── LICENSE
+├── README.md
+├── requirements.txt
+├── setup.py
+├── data/
 │   └── carbonmonitor-global_datas_2026-05-22.csv
-├── spgt/                    # Core source library
-│   ├── __init__.py          # Exposed classes and helpers
-│   ├── models.py            # PyTorch model definitions
-│   └── preprocess.py        # Holiday projection and dataset utilities
-└── examples/                # Running examples
-    ├── inference_demo.py    # Basic test pass with dummy tensors
-    └── train_eval.py        # Complete training pipeline (includes synthetic data generator)
+├── spgt/
+│   ├── __init__.py
+│   ├── models.py
+│   └── preprocess.py
+└── examples/
+    ├── inference_demo.py
+    └── train_eval.py
 ```
 
 ---
 
-## ⚡ Installation
-
-Clone the repository and install dependencies in editable mode:
+## Installation
 
 ```bash
-git clone https://github.com/your-username/spgt.git
-cd spgt
+git clone https://github.com/shuhaochen618-svg/spgt-emissions-forecasting.git
+cd spgt-emissions-forecasting
 pip install -r requirements.txt
 pip install -e .
 ```
 
 ---
 
----
+## Quickstart
 
-## 🚀 Quickstart
-
-### 1. Minimal Inference Demo
-To check if the package works, run the inference demo script which computes a forward pass on dummy tensors:
+### Minimal inference demo
 
 ```bash
 python examples/inference_demo.py
 ```
 
-Or write your own script:
-
-```python
-import torch
-from spgt import TemporalSectoralTransformer
-
-# 6 sectors, 5 calendar dimensions, 90 lookback days, 30 forecast days
-model = TemporalSectoralTransformer(lookback=90, horizon=30, num_sectors=6, num_calendar=5)
-
-X_hist = torch.randn(4, 90, 11)      # (batch, lookback, num_sectors + calendar_dims)
-X_fut_cal = torch.randn(4, 30, 5)    # (batch, horizon, calendar_dims)
-
-model.eval()
-with torch.no_grad():
-    y_pred, t_attn, s_attn = model(X_hist, X_fut_cal)
-
-print("Predictions shape:", y_pred.shape)  # Expected: torch.Size([4, 30, 6])
-```
-
-### 2. Complete Training and Evaluation
-To train SPGT on the provided raw dataset:
+### Training and evaluation example
 
 ```bash
-python examples/train_eval.py --data_path "data/carbonmonitor-global_datas_2026-05-22.csv" --epochs 15 --batch_size 32
+python examples/train_eval.py --data_path "data/carbonmonitor-global_datas_2026-05-22.csv" --epochs 15 --batch_size 32 --seed 42
 ```
 
-If no dataset path is specified (or file not found), the training script will automatically fall back to generating synthetic daily data to run a quick test.
+The example uses a 90-day lookback window and a 30-day forecasting horizon. By default, it uses a chronological split with training targets ending on 31 December 2023, validation targets ending on 31 December 2024, and test targets thereafter.
 
 ---
 
-## 📊 Benchmarks (China Test Set)
+## Manuscript benchmark results
 
-Raw, unscaled benchmark results comparing SPGT with traditional recurrent networks, point-wise Transformers, and channel-independent baselines on the daily Carbon Monitor dataset for a 30-day horizon:
+The following raw-scale results correspond to the benchmark table reported in the current manuscript for China's 2025-2026 test period and a 30-day forecasting horizon.
 
-| Model | Overall MAE (Mt CO₂/day) | Overall MSE | Overall MAPE (%) | Status |
-| :--- | :---: | :---: | :---: | :---: |
-| **SPGT (Ours)** | **0.4321** | **0.6864** | **48.40%** | **Proposed** |
-| **SPGT (w/o CNY)** | 0.4632 | 0.8174 | 57.42% | Ablation |
-| **DLinear** | 0.4656 | 0.8458 | 64.70% | Baseline |
-| **LSTM** | 0.6002 | 1.1488 | 187.82% | Recurrent |
-| **Transformer** | 0.6022 | 1.3902 | 53.81% | Point-wise |
+| Model | MAE (Mt CO2/day) | MSE | MAPE (%) |
+| :--- | ---: | ---: | ---: |
+| SPGT (Ours) | **0.4074** | **0.6283** | **47.57** |
+| SPGT (w/o CNY) | 0.4691 | 0.8445 | 51.30 |
+| DLinear | 0.4656 | 0.8458 | 64.70 |
+| Linear | 0.5426 | 1.0865 | 79.71 |
+| GRU | 0.5775 | 1.0820 | 144.35 |
+| RNN | 0.5816 | 1.0876 | 232.34 |
+| LSTM | 0.6002 | 1.1488 | 187.82 |
+| MLP | 0.6008 | 1.5362 | 52.03 |
+| Transformer | 0.6022 | 1.3902 | 53.81 |
+| Random Forest | 0.6215 | 1.5260 | 60.37 |
+
+The MAPE values should be interpreted carefully because sector-level daily emissions can contain small denominators, especially for low-emission sectors.
+
+---
+
+## Data note
+
+The daily CO2 emissions data analysed in the manuscript were obtained from the publicly available Carbon Monitor dataset. Carbon Monitor is a living dataset and may be updated or revised over time; therefore, reported results correspond to the data release used for the present analysis.
+
+---
+
+## Scope of the repository
+
+This repository supports short-term emission forecasting and reproducibility of the SPGT modelling workflow. It does not provide a policy-grade national emissions-peak estimate, and recursive long-horizon projections should be treated only as exploratory model outputs.
+
+---
+
+## License
+
+This project is released under the MIT License.
