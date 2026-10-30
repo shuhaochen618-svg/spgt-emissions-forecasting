@@ -1,0 +1,29 @@
+{
+  "data": {
+    "lookback": 90,
+    "horizon": 30,
+    "train_end": "2023-12-31",
+    "val_end": "2024-12-31"
+  },
+  "model": {
+    "d_model": 64,
+    "nhead": 2,
+    "num_layers": 1,
+    "dropout": 0.1,
+    "patch_len": 16,
+    "stride": 8,
+    "gate_init": 0.2,
+    "use_graph": true
+  },
+  "training": {
+    "optimizer": "AdamW",
+    "lr": 0.003,
+    "weight_decay": 0.001,
+    "scheduler": "cosine",
+    "max_epochs": 65,
+    "patience": 20,
+    "batch_size": 64,
+    "eval_batch_size": 128
+  },
+  "seeds": [0, 1, 2, 3, 4]
+}

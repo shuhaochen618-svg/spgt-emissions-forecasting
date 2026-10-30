@@ -1,117 +1,109 @@
-# SPGT: Spatiotemporal Patch Graph Transformer
+# SPGT: Sectoral Patch Gated Transformer for daily sectoral CO2 emissions in China
 
-Official implementation for the manuscript:
+Code, data and trained weights for the paper
+"Holiday-aware forecasting of China's daily sectoral CO2 emissions around Chinese New Year".
 
-**Forecasting Lunar New Year disruptions in China's daily sectoral CO2 emissions for near-real-time monitoring**
+SPGT forecasts the next 30 days of emissions for six sectors (Domestic Aviation, Ground Transport,
+Industry, International Aviation, Power, Residential) from the previous 90 days. The model
 
-This repository provides the implementation of the holiday-aware Spatiotemporal Patch Graph Transformer (SPGT) for 30-day forecasting of China's sectoral daily CO2 emissions using the Carbon Monitor dataset.
+1. splits each sector series into overlapping patches (length 16, stride 8) and applies temporal
+   self-attention within each sector;
+2. projects the calendar features of the forecast horizon into one embedding per patch and adds it
+   to every patch token;
+3. mixes information across sectors with a sectoral attention layer whose contribution is controlled
+   by a learnable gate; the gate is set to zero whenever the forecast horizon contains a day of the
+   Chinese New Year (CNY) window (day -7 to day +15).
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![PyTorch](https://img.shields.io/badge/PyTorch-%23EE4C2C.svg?style=flat&logo=PyTorch&logoColor=white)](https://pytorch.org/)
+## Repository layout
 
-<p align="center">
-  <img src="Figure1.png" alt="Graphical abstract" width="100%">
-</p>
-
----
-
-## Overview
-
-Near-real-time CO2 emission estimates are useful for environmental monitoring and short-term assessment, but daily emissions contain strong calendar effects. In China, the Lunar New Year holiday shifts on the Gregorian calendar and produces recurring but date-shifting disruptions in industrial and transport activity.
-
-SPGT addresses this short-term forecasting problem with three components:
-
-- patch-based temporal representation for daily multivariate emission sequences;
-- future calendar covariates for holiday-aware forecasting;
-- sector-attention layers for modelling predictive associations among emission sectors.
-
-The sector-attention outputs should be interpreted as exploratory predictive associations, not as causal evidence of physical sectoral coupling.
-
----
-
-## Repository structure
-
-```text
-.
-├── LICENSE
-├── README.md
-├── requirements.txt
-├── setup.py
-├── data/
-│   └── carbonmonitor-global_datas_2026-05-22.csv
-├── spgt/
-│   ├── __init__.py
-│   ├── models.py
-│   └── preprocess.py
-└── examples/
-    ├── inference_demo.py
-    └── train_eval.py
 ```
-
----
+spgt/            model, data preparation, training loop, metrics
+configs/         hyperparameters of the final model
+scripts/         train.py, evaluate.py
+data/            Carbon Monitor China daily sector data and official holiday table
+weights/         trained weights for seeds 0-4
+```
 
 ## Installation
 
+Python 3.11.
+
 ```bash
-git clone https://github.com/shuhaochen618-svg/spgt-emissions-forecasting.git
-cd spgt-emissions-forecasting
 pip install -r requirements.txt
-pip install -e .
 ```
 
----
+A CUDA GPU is used if available; evaluation also runs on CPU.
 
-## Quickstart
+## Data
 
-### Minimal inference demo
+`data/carbonmonitor_china_daily.csv` holds daily CO2 emissions (Mt CO2/day) for China from
+2019-01-01 to 2026-03-31, taken from Carbon Monitor. `data/cn_official_holidays.csv` lists statutory
+holidays and adjusted working days in China for 2019-2026. See `data/README.md` for sources.
+
+Splits are chronological:
+
+| split      | windows | target days               |
+|------------|---------|---------------------------|
+| train      | 1707    | 2019-04-01 to 2023-12-31  |
+| validation | 338     | 2023-12-31 to 2024-12-31  |
+| test       | 427     | 2024-12-31 to 2026-03-31  |
+
+Each window has a 90-day input and a 30-day target. The input of the first validation (test)
+window ends one day before the training (validation) cut-off, so the first target day of each later
+split coincides with the last day of the preceding one.
+
+Emissions are z-scored per sector with training-period statistics. Each input step carries 11
+calendar features: sine/cosine of month, day of week and day of year; the CNY-window indicator;
+days before and after the nearest CNY (divided by 180); official holiday and adjusted workday flags.
+
+## Training
 
 ```bash
-python examples/inference_demo.py
+python scripts/train.py --seed 0
 ```
 
-### Training and evaluation example
+Weights are written to `runs/spgt_s<seed>.pt`. Hyperparameters are read from
+`configs/spgt_final.json` (selected by random search on the 2024 validation year): d_model 64,
+2 heads, 1 layer, dropout 0.1, patch 16 / stride 8, initial gate 0.2, AdamW with learning rate 3e-3
+and weight decay 1e-3, cosine schedule, batch size 64, at most 65 epochs with early stopping
+(patience 20) on validation MSE. Training takes a few seconds per seed on a single GPU.
+
+## Evaluation
 
 ```bash
-python examples/train_eval.py --data_path "data/carbonmonitor-global_datas_2026-05-22.csv" --epochs 15 --batch_size 32 --seed 42
+python scripts/evaluate.py --weights-dir weights
 ```
 
-The example uses a 90-day lookback window and a 30-day forecasting horizon. By default, it uses a chronological split with training targets ending on 31 December 2023, validation targets ending on 31 December 2024, and test targets thereafter.
+Metrics are computed on the raw scale and averaged over the six sectors (WAPE is pooled over
+sectors). CNY-window MAE uses only target days inside the CNY window.
 
----
+Expected output with the released weights:
 
-## Manuscript benchmark results
+| seed | MAE    | RMSE   | WAPE (%) | CNY-window MAE |
+|------|--------|--------|----------|----------------|
+| 0    | 0.3584 | 0.4810 | 6.51     | 0.6531         |
+| 1    | 0.3644 | 0.5112 | 6.62     | 0.6537         |
+| 2    | 0.3462 | 0.4752 | 6.29     | 0.5503         |
+| 3    | 0.3534 | 0.5031 | 6.42     | 0.6275         |
+| 4    | 0.3964 | 0.5457 | 7.20     | 0.6220         |
+| mean | 0.3638 ± 0.0194 | 0.5032 ± 0.0281 | 6.61 ± 0.35 | 0.6213 ± 0.0422 |
 
-The following raw-scale results correspond to the benchmark table reported in the current manuscript for China's 2025-2026 test period and a 30-day forecasting horizon.
+Standard deviations are over the five seeds (ddof = 1). RMSE is the mean of the per-sector RMSE.
+Retraining with `scripts/train.py` on the same software versions reproduced the seed-0 weights
+exactly; other GPUs or library versions may give small differences.
 
-| Model | MAE (Mt CO2/day) | MSE | MAPE (%) |
-| :--- | ---: | ---: | ---: |
-| SPGT (Ours) | **0.4074** | **0.6283** | **47.57** |
-| SPGT (w/o CNY) | 0.4691 | 0.8445 | 51.30 |
-| DLinear | 0.4656 | 0.8458 | 64.70 |
-| Linear | 0.5426 | 1.0865 | 79.71 |
-| GRU | 0.5775 | 1.0820 | 144.35 |
-| RNN | 0.5816 | 1.0876 | 232.34 |
-| LSTM | 0.6002 | 1.1488 | 187.82 |
-| MLP | 0.6008 | 1.5362 | 52.03 |
-| Transformer | 0.6022 | 1.3902 | 53.81 |
-| Random Forest | 0.6215 | 1.5260 | 60.37 |
+## Citation
 
-The MAPE values should be interpreted carefully because sector-level daily emissions can contain small denominators, especially for low-emission sectors.
-
----
-
-## Data note
-
-The daily CO2 emissions data analysed in the manuscript were obtained from the publicly available Carbon Monitor dataset. Carbon Monitor is a living dataset and may be updated or revised over time; therefore, reported results correspond to the data release used for the present analysis.
-
----
-
-## Scope of the repository
-
-This repository supports short-term emission forecasting and reproducibility of the SPGT modelling workflow. It does not provide a policy-grade national emissions-peak estimate, and recursive long-horizon projections should be treated only as exploratory model outputs.
-
----
+```bibtex
+@article{chen_spgt,
+  title   = {Holiday-aware forecasting of China's daily sectoral CO2 emissions around Chinese New Year},
+  author  = {Chen, Shuhao and others},
+  journal = {},
+  year    = {},
+  doi     = {}
+}
+```
 
 ## License
 
-This project is released under the MIT License.
+Code: MIT (see `LICENSE`). Carbon Monitor data: CC BY 4.0.
